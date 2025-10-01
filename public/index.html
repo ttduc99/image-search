@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Image Search Abstraction Layer</title>
+</head>
+<body>
+  <h1>Image Search</h1>
+  <input type="text" id="searchTerm" placeholder="Search images">
+  <button onclick="search()">Search</button>
+
+  <h2>Results</h2>
+  <div id="results"></div>
+
+  <h2>Recent Searches</h2>
+  <ul id="recent"></ul>
+
+  <script>
+    async function search(page=1){
+      const term = document.getElementById('searchTerm').value;
+      if(!term) return alert("Nhập từ khóa tìm kiếm!");
+      const res = await fetch(`/query/${term}?page=${page}`);
+      const data = await res.json();
+      const resultsDiv = document.getElementById('results');
+      resultsDiv.innerHTML = data.map(img => `
+        <div>
+          <img src="${img.url}" alt="${img.description}" width="200">
+          <p>${img.description || 'No description'}</p>
+          <a href="${img.pageURL}" target="_blank">View Page</a>
+        </div>
+      `).join('');
+      loadRecent();
+    }
+
+    async function loadRecent(){
+      const res = await fetch('/recent');
+      const data = await res.json();
+      const recentUl = document.getElementById('recent');
+      recentUl.innerHTML = data.map(r => `<li>${r.term} - ${new Date(r.when).toLocaleString()}</li>`).join('');
+    }
+
+    loadRecent();
+  </script>
+</body>
+</html>

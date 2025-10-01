@@ -1,45 +1,114 @@
 <!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <title>Image Search Abstraction Layer</title>
-</head>
-<body>
-  <h1>Image Search</h1>
-  <input type="text" id="searchTerm" placeholder="Search images">
-  <button onclick="search()">Search</button>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Image Search Demo</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        max-width: 900px;
+        margin: 20px auto;
+      }
+      .row {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+      }
+      .card {
+        width: 200px;
+        border: 1px solid #ddd;
+        padding: 8px;
+        border-radius: 6px;
+      }
+      img {
+        width: 100%;
+        height: 120px;
+        object-fit: cover;
+        display: block;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Image Search (Demo)</h1>
+    <form id="searchForm">
+      <input id="q" placeholder="Search term..." required />
+      <button>Search</button>
+    </form>
+    <p>
+      <strong>Recent searches:</strong>
+      <span id="recent"></span>
+    </p>
 
-  <h2>Results</h2>
-  <div id="results"></div>
+    <div id="controls"></div>
+    <div id="results" class="row"></div>
 
-  <h2>Recent Searches</h2>
-  <ul id="recent"></ul>
+    <script>
+      const resultsEl = document.getElementById('results');
+      const recentEl = document.getElementById('recent');
+      const controlsEl = document.getElementById('controls');
 
-  <script>
-    async function search(page=1){
-      const term = document.getElementById('searchTerm').value;
-      if(!term) return alert("Nhập từ khóa tìm kiếm!");
-      const res = await fetch(`/query/${term}?page=${page}`);
-      const data = await res.json();
-      const resultsDiv = document.getElementById('results');
-      resultsDiv.innerHTML = data.map(img => `
-        <div>
-          <img src="${img.url}" alt="${img.description}" width="200">
-          <p>${img.description || 'No description'}</p>
-          <a href="${img.pageURL}" target="_blank">View Page</a>
+      async function loadRecent() {
+        const r = await fetch('/api/recent');
+        const arr = await r.json();
+        if (!arr || arr.length === 0) {
+          recentEl.textContent = '(none)';
+          return;
+        }
+        recentEl.innerHTML = arr
+          .map(
+            (x) =>
+              `<a href="#" onclick="doSearch('${encodeURIComponent(
+                x.term
+              )}',1);return false">${x.term}</a>`
+          )
+          .join(' · ');
+      }
+      async function doSearch(termEncoded, page = 1) {
+        const term = decodeURIComponent(termEncoded);
+        document.getElementById('q').value = term;
+        resultsEl.innerHTML = 'Loading...';
+        controlsEl.innerHTML = `Page ${page} — <a href="#" onclick="doSearch('${encodeURIComponent(
+          term
+        )}', ${
+          page - 1
+        });return false">Prev</a> · <a href="#" onclick="doSearch('${encodeURIComponent(
+          term
+        )}', ${page + 1});return false">Next</a>`;
+        const r = await fetch(
+          `/api/query/${encodeURIComponent(term)}?page=${page}`
+        );
+        const data = await r.json();
+        if (!Array.isArray(data)) {
+          resultsEl.textContent = JSON.stringify(data);
+          return;
+        }
+        resultsEl.innerHTML = data
+          .map(
+            (it) => `
+        <div class="card">
+          <a href="${it.page || '#'}" target="_blank"><img src="${
+              it.url
+            }" alt="${it.description || ''}" /></a>
+          <div>${it.description || 'No description'}</div>
+          <div><small><a href="${
+            it.page || '#'
+          }" target="_blank">Source</a></small></div>
         </div>
-      `).join('');
+      `
+          )
+          .join('');
+        loadRecent();
+      }
+
+      document.getElementById('searchForm').addEventListener('submit', (e) => {
+        e.preventDefault();
+        const q = document.getElementById('q').value.trim();
+        if (!q) return;
+        doSearch(encodeURIComponent(q), 1);
+      });
+
+      // initial
       loadRecent();
-    }
-
-    async function loadRecent(){
-      const res = await fetch('/recent');
-      const data = await res.json();
-      const recentUl = document.getElementById('recent');
-      recentUl.innerHTML = data.map(r => `<li>${r.term} - ${new Date(r.when).toLocaleString()}</li>`).join('');
-    }
-
-    loadRecent();
-  </script>
-</body>
+    </script>
+  </body>
 </html>
